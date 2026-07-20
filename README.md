@@ -38,6 +38,7 @@ the services it watches can't otherwise tell you.
 2. **Start**
 
    ```sh
+   mkdir -p kuma-data   # bind-mount target; Synology won't auto-create it
    docker compose up -d
    ```
 
