@@ -83,15 +83,23 @@ def fetch_counts(metrics_url: str, token: str, timeout: float) -> tuple[int, int
     return parse_counts(resp.text)
 
 
-def build_payload(up: int, total: int, lifetime: int) -> dict:
-    """Build the AWTRIX custom-app payload for the health tile."""
+def build_payload(up: int, total: int, lifetime: int, icon: str = "") -> dict:
+    """Build the AWTRIX custom-app payload for the health tile.
+
+    `icon` is a LaMetric icon ID that must already be uploaded to the AWTRIX
+    device; passing an ID the device doesn't have makes AWTRIX drop the tile,
+    so an empty string omits the field entirely.
+    """
     if total == 0:
         color = COLOR_UNKNOWN
     elif up == total:
         color = COLOR_ALL_UP
     else:
         color = COLOR_DOWN
-    return {"text": f"{up}/{total}", "color": color, "lifetime": lifetime}
+    payload = {"text": f"{up}/{total}", "color": color, "lifetime": lifetime}
+    if icon:
+        payload["icon"] = icon
+    return payload
 
 
 def push_tile(base_url: str, name: str, payload: dict, timeout: float) -> None:
@@ -105,10 +113,10 @@ def push_tile(base_url: str, name: str, payload: dict, timeout: float) -> None:
 
 
 def run_once(metrics_url: str, token: str, base_url: str, app_name: str,
-             lifetime: int, timeout: float, push: bool = True) -> None:
+             lifetime: int, timeout: float, icon: str = "", push: bool = True) -> None:
     import json
     up, total = fetch_counts(metrics_url, token, timeout)
-    payload = build_payload(up, total, lifetime)
+    payload = build_payload(up, total, lifetime, icon)
     print(f"Kuma monitors: {up}/{total} up")
     print(f"AWTRIX payload: {json.dumps(payload, indent=2)}")
     if push:
@@ -117,7 +125,7 @@ def run_once(metrics_url: str, token: str, base_url: str, app_name: str,
 
 
 def run_loop(metrics_url: str, token: str, base_url: str, app_name: str,
-             interval: int, lifetime: int, timeout: float) -> None:
+             interval: int, lifetime: int, timeout: float, icon: str = "") -> None:
     running = True
 
     def stop(signum, _frame):
@@ -136,7 +144,7 @@ def run_loop(metrics_url: str, token: str, base_url: str, app_name: str,
         started = time.monotonic()
         try:
             up, total = fetch_counts(metrics_url, token, timeout)
-            payload = build_payload(up, total, lifetime)
+            payload = build_payload(up, total, lifetime, icon)
             push_tile(base_url, app_name, payload, timeout)
             log.info("%s: %d/%d up", app_name, up, total)
             consecutive_failures = 0
@@ -176,6 +184,7 @@ def main() -> None:
     base_url = base_url.rstrip("/")
 
     app_name = env("AWTRIX_APP_NAME", "health").strip()
+    icon = env("HEALTH_ICON", "2259").strip()          # LaMetric icon ID (must be on the device)
     interval = int(env("PUSH_INTERVAL_SECONDS", "60"))
     lifetime = int(env("TILE_LIFETIME_SECONDS", "180"))
     timeout = float(env("HTTP_TIMEOUT_SECONDS", "10"))
@@ -187,9 +196,9 @@ def main() -> None:
 
     if "--once" in sys.argv:
         run_once(metrics_url, kuma_token, base_url, app_name, lifetime, timeout,
-                 push="--no-push" not in sys.argv)
+                 icon=icon, push="--no-push" not in sys.argv)
     else:
-        run_loop(metrics_url, kuma_token, base_url, app_name, interval, lifetime, timeout)
+        run_loop(metrics_url, kuma_token, base_url, app_name, interval, lifetime, timeout, icon)
 
 
 if __name__ == "__main__":
