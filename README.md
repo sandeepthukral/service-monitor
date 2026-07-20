@@ -131,6 +131,13 @@ All via `.env` (see `.env.example`). Required for the bridge:
 `KUMA_USERNAME`, `KUMA_PASSWORD`. `KUMA_URL` is set by compose to the internal
 service address.
 
+Optional for the bridge: `HEALTH_ICON` (default `2259`) — the LaMetric icon ID
+shown to the left of the `up/total` text on the tile. The icon must already be
+uploaded to the AWTRIX device (web UI → **Icons** → add by ID); if the device
+doesn't have it, AWTRIX drops the whole tile. Set `HEALTH_ICON=` (empty) to show
+the text with no icon. Tile color already carries status (green all-up, red
+degraded), so the icon just labels the tile.
+
 ## Moving to a Raspberry Pi later
 
 This whole folder is self-contained. To migrate off the NAS:

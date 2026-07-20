@@ -20,6 +20,8 @@ services:
     environment:
       # Talk to Kuma over the internal compose network, not the published port.
       KUMA_URL: http://uptime-kuma:3001
+      # HEALTH_ICON (LaMetric icon ID on the tile) defaults to 2259 in code;
+      # override it via .env. Not set here so .env stays the single source.
     depends_on:
       - uptime-kuma
     restart: always
