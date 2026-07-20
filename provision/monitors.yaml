@@ -73,9 +73,10 @@ monitors:
     type: ping
     hostname: 192.168.68.105
 
-  # ============ Dead-man's switch for THIS monitor host ============
-  # Kuma generates the push URL after creation; the script prints it so you can
-  # paste it into healthchecks.io (external alert if the whole NAS dies).
-  - name: Monitor host heartbeat
-    type: push
-    interval: 60
+  # NOTE: no "monitor host down" push monitor here. This NAS has no internet, so
+  # an external dead-man's switch (healthchecks.io) is impossible. Instead, the
+  # bridge pushes the AWTRIX tile with TILE_LIFETIME_SECONDS; if this host dies
+  # the tile stops refreshing and vanishes from the clock. A missing tile IS the
+  # "monitor host is down" signal, and the clock is separate LAN hardware, so it
+  # needs no internet. (A self-ping push monitor would just sit red forever and
+  # keep the tile permanently red — so it is deliberately omitted.)
