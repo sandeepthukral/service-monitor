@@ -117,6 +117,10 @@ Notes:
 - **You can still use the UI.** Adding monitors by hand and adding them as code
   aren't exclusive; the YAML just lets tomorrow's setup be repeatable. Anything
   you want reproducible, put in the file.
+- `provision/monitors.yaml` is **bind-mounted** into the tool, so editing it
+  takes effect on the next `run` — no image rebuild. (You only need to rebuild
+  the `provision` image when `sync_monitors.py` or its deps change, e.g. after a
+  `git pull` that touches them: `docker compose build provision`.)
 - `uptime-kuma-api` is pinned in `provision/requirements.txt` and must match your
   Kuma server version — bump them together.
 
