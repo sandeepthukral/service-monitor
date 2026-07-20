@@ -34,6 +34,10 @@ services:
     env_file: .env
     environment:
       KUMA_URL: http://uptime-kuma:3001
+    volumes:
+      # Mount the live source of truth over the copy baked into the image, so
+      # editing monitors.yaml takes effect on the next run with no rebuild.
+      - ./provision/monitors.yaml:/app/monitors.yaml:ro
     depends_on:
       - uptime-kuma
     profiles: ["tools"]     # excluded from `docker compose up`

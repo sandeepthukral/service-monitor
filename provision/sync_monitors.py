@@ -116,14 +116,22 @@ def desired_monitor(m: dict, defaults: dict, docker_hosts: dict[str, int]) -> di
     return out
 
 
+def _type_str(v) -> str:
+    """Normalize a monitor type to its lowercase string value.
+
+    Both the desired type and the type returned by uptime-kuma-api can be a
+    MonitorType enum, whose str() is "MonitorType.HTTP" rather than "http" — so
+    compare via .value, not str(enum).
+    """
+    return (v.value if isinstance(v, MonitorType) else str(v)).lower()
+
+
 def needs_update(current: dict, desired: dict) -> list[str]:
     """Return the list of managed fields that differ between current and desired."""
     drifted = []
     for key, want in desired.items():
         if key == "type":
-            # Kuma returns type as a string like "http"; compare case-insensitively.
-            have = str(current.get("type", "")).lower()
-            if have != str(want.value if isinstance(want, MonitorType) else want).lower():
+            if _type_str(current.get("type", "")) != _type_str(want):
                 drifted.append(key)
             continue
         if current.get(key) != want:
