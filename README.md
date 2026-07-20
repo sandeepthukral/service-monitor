@@ -20,11 +20,20 @@ the services it watches can't otherwise tell you.
 ```
 [ this host ]                              [ services ]
   uptime-kuma  ──HTTP/TCP/ping/docker──▶  containers
-       │  (push heartbeat)
-       ├──────────────────────▶ healthchecks.io ──▶ email if this host dies
        │
    bridge (scrape /metrics) ──▶ AWTRIX clock  (green N/N | red U/N | gone = host down)
 ```
+
+> **Offline note.** This runs on a NAS with **no internet access**, so an
+> external dead-man's switch (healthchecks.io etc.) is impossible — nothing on
+> the host can reach the internet. The host-down signal is instead the
+> **self-expiring tile**: if the NAS / Docker / Kuma / bridge dies, the pushes
+> stop and the tile vanishes from the clock within `TILE_LIFETIME_SECONDS`. The
+> clock is separate LAN hardware, so it's a genuine independent failure domain
+> and needs no internet. The trade-off: the signal is **visual** (a tile that
+> disappears), not a push/email alert — an air-gapped host cannot notify you
+> out-of-band. A missing tile is also ambiguous (host dead *or* clock off), but
+> the two are obvious to tell apart by looking at the clock.
 
 ## Setup
 
@@ -57,11 +66,18 @@ the services it watches can't otherwise tell you.
    docker compose up -d bridge
    ```
 
-5. **Dead-man's switch** (do not skip while this runs on the NAS) — add a
-   **Push** monitor in Kuma, paste its ping URL into a free
-   [healthchecks.io](https://healthchecks.io) check, and set that check to
-   email you. If the host / Docker / Kuma dies, the pings stop and healthchecks
-   alerts you — the alert path that can't be running on the box that just died.
+   The key is used as the HTTP Basic-auth **password** for `/metrics` (username
+   blank) — the bridge handles this; just paste the key verbatim.
+
+5. **Confirm the host-down signal.** With no internet there's no external
+   dead-man's switch (see the offline note above); the self-expiring tile is it.
+   Prove it works once:
+
+   ```sh
+   docker compose stop bridge
+   # wait TILE_LIFETIME_SECONDS — the health tile should disappear from the clock
+   docker compose up -d bridge   # tile returns
+   ```
 
 ## Verify the bridge without the loop
 
@@ -93,8 +109,11 @@ Notes:
 - Supported types: `http`, `port`, `ping`, `docker`, `push`. A `docker` monitor
   references a `docker_host` by name; the tool auto-creates the host from the
   `docker_hosts:` block.
-- For a `push` monitor (the healthchecks.io heartbeat), the tool prints the push
-  URL on creation — paste it into healthchecks.io.
+- For a `push` monitor (e.g. the alphaess-collector heartbeat), get its push URL
+  from the **Kuma UI** (open the monitor). The tool logs a URL on creation, but
+  some Kuma versions settle the token a moment later, so the UI is authoritative.
+  Consumers on **other** Docker networks (like the collector) must reach it via
+  the host LAN IP, not the internal service name.
 - **You can still use the UI.** Adding monitors by hand and adding them as code
   aren't exclusive; the YAML just lets tomorrow's setup be repeatable. Anything
   you want reproducible, put in the file.
@@ -121,9 +140,12 @@ rsync -a ./ pi@raspberrypi:~/service-monitor/
 cd ~/service-monitor && docker compose up -d
 ```
 
-Nothing else changes — same `.env`, same clock. Once it's on the Pi it lives in
-a real independent failure domain and the healthchecks.io switch becomes
-belt-and-suspenders rather than load-bearing.
+Nothing else changes — same `.env`, same clock. Once it's on the Pi (a separate
+box from the services it watches) the monitor lives in a real independent
+failure domain: a NAS crash no longer takes the monitor down with it, so the
+Pi can still report the NAS as down. The self-expiring tile stays the host-down
+signal for the Pi itself. If the Pi ever gets internet, an external dead-man's
+switch (healthchecks.io) becomes possible as a belt-and-suspenders add-on.
 
 ## Notes
 
