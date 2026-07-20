@@ -1,0 +1,25 @@
+services:
+  uptime-kuma:
+    image: louislam/uptime-kuma:1
+    container_name: uptime-kuma
+    volumes:
+      - ./kuma-data:/app/data
+      # Read-only Docker socket so Kuma can run "Docker Container" monitors
+      # (detects a crashed/exited container even when something still answers
+      # on its port). Safe-ish because it's :ro, but note anyone who can reach
+      # the Kuma UI can then enumerate containers.
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    ports:
+      - "3001:3001"
+    restart: always
+
+  bridge:
+    build: ./bridge
+    container_name: kuma-awtrix-bridge
+    env_file: .env
+    environment:
+      # Talk to Kuma over the internal compose network, not the published port.
+      KUMA_URL: http://uptime-kuma:3001
+    depends_on:
+      - uptime-kuma
+    restart: always
