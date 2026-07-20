@@ -7,6 +7,10 @@
 #
 # Supported types: http, port, ping, docker, push. `defaults` are applied to
 # every monitor unless the monitor overrides them.
+#
+# HTTP monitors reach services via the host's published ports, so they use the
+# NAS LAN IP (192.168.68.105) rather than "nas", which won't resolve inside the
+# Kuma container.
 
 defaults:
   interval: 60          # seconds between checks
@@ -20,35 +24,58 @@ docker_hosts:
     daemon: /var/run/docker.sock       # socket path, or tcp://host:2375
 
 monitors:
-  # --- HTTP: "is the app responding?" ---
-  - name: Plex
-    type: http
-    url: http://nas:32400/web/index.html
+  # ============ alphaess-collector stack ============
 
-  - name: Vaultwarden
-    type: http
-    url: http://nas:8080
+  # End-to-end "data is actually flowing": the collector pings this Push monitor
+  # after each successful InfluxDB write. Catches a stuck-but-alive collector
+  # that plain container/HTTP checks miss. Set HEARTBEAT_URL in the collector's
+  # .env to the URL this monitor prints on creation.
+  - name: AlphaESS collector heartbeat
+    type: push
+    interval: 60          # grace window; keep > collector POLL_INTERVAL_SECONDS
 
-  # --- Docker: "is the container actually running?" (pair with HTTP above) ---
-  - name: Vaultwarden container
+  # InfluxDB up (HTTP /health returns 200 on Influx 2.x).
+  - name: InfluxDB
+    type: http
+    url: http://192.168.68.105:8086/health
+
+  # Grafana up (/api/health returns 200). This NAS uses the shared-Grafana
+  # overlay: the alphaess dashboards live in the TeslaMate Grafana on :3000.
+  - name: Grafana
+    type: http
+    url: http://192.168.68.105:3000/api/health
+
+  # Containers actually running (catches a crashed/exited container).
+  - name: collector container
     type: docker
-    docker_container: vaultwarden      # container name or ID on the host
+    docker_container: alphaess-collector-collector-1
     docker_host: local
 
-  # --- Raw TCP port ---
-  - name: NAS SSH
-    type: port
-    hostname: nas
-    port: 22
+  - name: influxdb container
+    type: docker
+    docker_container: alphaess-collector-influxdb-1
+    docker_host: local
 
-  # --- ICMP ping ---
+  - name: awtrix-pusher container
+    type: docker
+    docker_container: alphaess-collector-awtrix-pusher-1
+    docker_host: local
+
+  # Shared Grafana serving the alphaess dashboards.
+  - name: grafana container
+    type: docker
+    docker_container: teslamate-grafana-1
+    docker_host: local
+
+  # ============ NAS itself ============
+
   - name: NAS reachable
     type: ping
-    hostname: nas
+    hostname: 192.168.68.105
 
-  # --- Push (dead-man's switch target for healthchecks.io etc.) ---
+  # ============ Dead-man's switch for THIS monitor host ============
   # Kuma generates the push URL after creation; the script prints it so you can
-  # paste it into healthchecks.io. Give it a generous heartbeat interval.
+  # paste it into healthchecks.io (external alert if the whole NAS dies).
   - name: Monitor host heartbeat
     type: push
     interval: 60
