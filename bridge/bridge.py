@@ -75,10 +75,10 @@ def parse_counts(metrics_text: str) -> tuple[int, int]:
 def fetch_counts(metrics_url: str, token: str, timeout: float) -> tuple[int, int]:
     """Scrape Kuma /metrics and return (up, total).
 
-    Kuma protects /metrics with HTTP Basic auth: the API key is the username
-    and the password is blank.
+    Kuma protects /metrics with HTTP Basic auth: the API key goes in the
+    password field, and the username is ignored (blank here).
     """
-    resp = requests.get(metrics_url, auth=(token, ""), timeout=timeout)
+    resp = requests.get(metrics_url, auth=("", token), timeout=timeout)
     resp.raise_for_status()
     return parse_counts(resp.text)
 
