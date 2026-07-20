@@ -1,0 +1,5 @@
+# uptime-kuma-api is version-coupled to the uptime-kuma server. Pin this to a
+# release that supports your `louislam/uptime-kuma:1` image (see the lib's
+# compatibility table) and bump both together.
+uptime-kuma-api==1.2.1
+PyYAML==6.0.2

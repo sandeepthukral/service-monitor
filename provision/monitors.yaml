@@ -1,0 +1,54 @@
+# Monitors as code. This file is the source of truth; `sync_monitors.py`
+# reconciles Uptime Kuma to match it (creates missing, updates drifted, and
+# with --prune removes managed monitors no longer listed here).
+#
+# `name` is the identity key — the script matches existing monitors by name, so
+# renaming a monitor here creates a new one (and prunes the old, with --prune).
+#
+# Supported types: http, port, ping, docker, push. `defaults` are applied to
+# every monitor unless the monitor overrides them.
+
+defaults:
+  interval: 60          # seconds between checks
+  retryInterval: 60     # seconds between retries once down
+  maxretries: 1         # failed checks before marking DOWN (debounces blips)
+
+# Docker hosts Kuma uses for "docker" monitors. Referenced by name below.
+docker_hosts:
+  - name: local
+    type: socket                       # socket | tcp
+    daemon: /var/run/docker.sock       # socket path, or tcp://host:2375
+
+monitors:
+  # --- HTTP: "is the app responding?" ---
+  - name: Plex
+    type: http
+    url: http://nas:32400/web/index.html
+
+  - name: Vaultwarden
+    type: http
+    url: http://nas:8080
+
+  # --- Docker: "is the container actually running?" (pair with HTTP above) ---
+  - name: Vaultwarden container
+    type: docker
+    docker_container: vaultwarden      # container name or ID on the host
+    docker_host: local
+
+  # --- Raw TCP port ---
+  - name: NAS SSH
+    type: port
+    hostname: nas
+    port: 22
+
+  # --- ICMP ping ---
+  - name: NAS reachable
+    type: ping
+    hostname: nas
+
+  # --- Push (dead-man's switch target for healthchecks.io etc.) ---
+  # Kuma generates the push URL after creation; the script prints it so you can
+  # paste it into healthchecks.io. Give it a generous heartbeat interval.
+  - name: Monitor host heartbeat
+    type: push
+    interval: 60

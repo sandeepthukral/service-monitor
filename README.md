@@ -70,10 +70,42 @@ docker compose run --rm bridge python bridge.py --once
 docker compose run --rm bridge python bridge.py --once --no-push
 ```
 
+## Monitors as code
+
+`provision/monitors.yaml` is the source of truth for your monitors.
+`provision/sync_monitors.py` logs into Kuma's API and reconciles it to match:
+creates missing monitors, updates drifted ones (matched by name), and with
+`--prune` removes managed monitors you've deleted from the file. Edit the YAML,
+re-run, done — no clicking.
+
+```sh
+# needs KUMA_USERNAME / KUMA_PASSWORD in .env (your Kuma admin login)
+docker compose run --rm provision --dry-run    # preview changes, touches nothing
+docker compose run --rm provision              # apply create/update
+docker compose run --rm provision --prune      # also delete managed extras
+```
+
+Notes:
+- The tool only touches monitors whose **name** matches an entry in the file.
+  Monitors you made by hand in the UI with other names are left alone, and
+  `--prune` only deletes ones this tool created (tagged in their description).
+- Supported types: `http`, `port`, `ping`, `docker`, `push`. A `docker` monitor
+  references a `docker_host` by name; the tool auto-creates the host from the
+  `docker_hosts:` block.
+- For a `push` monitor (the healthchecks.io heartbeat), the tool prints the push
+  URL on creation — paste it into healthchecks.io.
+- **You can still use the UI.** Adding monitors by hand and adding them as code
+  aren't exclusive; the YAML just lets tomorrow's setup be repeatable. Anything
+  you want reproducible, put in the file.
+- `uptime-kuma-api` is pinned in `provision/requirements.txt` and must match your
+  Kuma server version — bump them together.
+
 ## Config
 
-All via `.env` (see `.env.example`). Required: `KUMA_METRICS_TOKEN`,
-`AWTRIX_HOST`. `KUMA_URL` is set by compose to the internal service address.
+All via `.env` (see `.env.example`). Required for the bridge:
+`KUMA_METRICS_TOKEN`, `AWTRIX_HOST`. Required for the provision tool:
+`KUMA_USERNAME`, `KUMA_PASSWORD`. `KUMA_URL` is set by compose to the internal
+service address.
 
 ## Moving to a Raspberry Pi later
 

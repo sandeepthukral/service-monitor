@@ -23,3 +23,18 @@ services:
     depends_on:
       - uptime-kuma
     restart: always
+
+  # On-demand: reconcile monitors from provision/monitors.yaml. Not started by
+  # `up`; run it explicitly:
+  #   docker compose run --rm provision --dry-run
+  #   docker compose run --rm provision
+  #   docker compose run --rm provision --prune
+  provision:
+    build: ./provision
+    env_file: .env
+    environment:
+      KUMA_URL: http://uptime-kuma:3001
+    depends_on:
+      - uptime-kuma
+    profiles: ["tools"]     # excluded from `docker compose up`
+    restart: "no"
